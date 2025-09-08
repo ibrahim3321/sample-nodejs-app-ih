@@ -1,41 +1,65 @@
-deploy:
-  runs-on: ubuntu-latest
-  needs: build
-  permissions:
-    id-token: write   # Required for requesting the JWT
-    contents: read    # Required for actions/checkout
+name: Build and deploy Node.js app to Azure Web App - my-first-webapp-IBRAHIM
 
-  steps:
-    # Checkout repo
-    - name: Checkout repository
-      uses: actions/checkout@v4
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
-    # Setup Node.js
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'   # or the version you need
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    # Install dependencies (production only)
-    - name: Install dependencies
-      run: npm install --production
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'   # change if needed
 
-    # (Optional) Run build if your app has a build step
-    - name: Build app
-      run: npm run build --if-present
+      # Install dependencies
+      - name: Install dependencies
+        run: npm install
 
-    # Login to Azure
-    - name: Login to Azure
-      uses: azure/login@v2
-      with:
-        client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_2C178BBFD93F45CD870ED493C89787EF }}
-        tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_F5A46E4D26B1464FAADD4E207525FF19 }}
-        subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_2BB210D0DE164634B2B156EA6ECD3B79 }}
+      # Build (if your app has a build step, otherwise skip)
+      - name: Build app
+        run: npm run build --if-present
 
-    # Deploy to Azure Web App
-    - name: Deploy to Azure Web App
-      uses: azure/webapps-deploy@v3
-      id: deploy-to-webapp
-      with:
-        app-name: 'my-first-webapp-IBRAHIM'
-        slot-name: 'Production'
+      # Upload build artifacts (so deploy job can use them)
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-app
+          path: .
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      # Download artifact from build job
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: node-app
+
+      # Login to Azure
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_2C178BBFD93F45CD870ED493C89787EF }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_F5A46E4D26B1464FAADD4E207525FF19 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_2BB210D0DE164634B2B156EA6ECD3B79 }}
+
+      # Deploy to Azure Web App
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'my-first-webapp-IBRAHIM'
+          slot-name: 'Production'
